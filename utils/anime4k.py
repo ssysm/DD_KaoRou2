@@ -5,6 +5,7 @@ from PySide2.QtWidgets import QWidget, QGridLayout, QFileDialog, QDialog, QSlide
                               QLabel, QPushButton, QHBoxLayout, QLineEdit, QComboBox, QTabWidget, QMessageBox
 from PySide2.QtGui import QPixmap, QPainter, QWheelEvent, QMouseEvent
 from PySide2.QtCore import Qt, QTimer, QPoint, QThread, Signal, QSize
+from utils.platform_helper import getBin
 
 
 def calSubTime(t):
@@ -463,7 +464,7 @@ class Anime4KDialog(QWidget):
             _path, _type = os.path.splitext(self.videoPath)
             self.outputPathEdit.setText(_path + '_Anime4K' + _type)
 
-            cmd = ['ffmpeg.exe', '-i', self.videoPath]
+            cmd = [getBin('ffmpeg'), '-i', self.videoPath]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             p.wait()
             try:
@@ -550,7 +551,7 @@ class Anime4KDialog(QWidget):
             self.generatePreview()
 
     def generatePreview(self):
-        cmd = ['ffmpeg.exe', '-y', '-ss', str(self.videoPos), '-i', self.videoPath, '-frames', '1', '-q:v', '1', '-f', 'image2', 'temp_origin.jpg']
+        cmd = [getBin('ffmpeg'), '-y', '-ss', str(self.videoPos), '-i', self.videoPath, '-frames', '1', '-q:v', '1', '-f', 'image2', 'temp_origin.jpg']
         p = subprocess.Popen(cmd)
         p.wait()
         # pixmap = QPixmap('temp_origin.jpg')

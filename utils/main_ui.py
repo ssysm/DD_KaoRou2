@@ -20,6 +20,7 @@ from utils.hotKey import hotKey_Info
 from utils.setting import settingPage
 from utils.releases import releases
 from utils.anime4k import Anime4KDialog
+from utils.platform_helper import getBin, getOS
 
 
 def calSubTime(t):
@@ -1010,8 +1011,9 @@ class MainWindow(QMainWindow):  # Main window
         playMenu.addAction(separateAction)
         previewAction = QAction(QIcon.fromTheme('document-open'), '&设置字幕样式', self, triggered=self.decode)
         playMenu.addAction(previewAction)
-        anime4KAction = QAction(QIcon.fromTheme('document-open'), '&Anime4K画质扩展', self, triggered=self.popAnime4K)
-        playMenu.addAction(anime4KAction)
+        if getOS() == 'win32':
+            anime4KAction = QAction(QIcon.fromTheme('document-open'), '&Anime4K画质扩展', self, triggered=self.popAnime4K)
+            playMenu.addAction(anime4KAction)
         reloadVideo = QAction(QIcon.fromTheme('document-open'), '&尝试解决字幕卡死', self, triggered=self.reloadVideo)
         playMenu.addAction(reloadVideo)
 
@@ -1184,8 +1186,8 @@ class MainWindow(QMainWindow):  # Main window
                 self.saveToken = False
         if self.saveToken:
             for f in os.listdir('temp_audio'):
-                os.remove('temp_audio\%s' % f)
-            cmd = ['ffmpeg.exe', '-i', videoPath]
+                os.remove('temp_audio/%s' % f)
+            cmd = [getBin('ffmpeg'), '-i', videoPath]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             p.wait()
             try:
@@ -1357,7 +1359,7 @@ class MainWindow(QMainWindow):  # Main window
                         if (sub_start > start and sub_start < end) or (sub_end > start and sub_end < end) or\
                            (sub_start < start and sub_end > end):
                             subtitleLine[x].append([sub_start, sub_end])
-                self.mainAudio.mp3Path = os.path.join(self.dir, r'temp_audio\audio_original.aac')
+                self.mainAudio.mp3Path = os.path.join(self.dir, r'temp_audio/audio_original.aac')
                 self.mainAudio.plot(xList, yList, position, step, [-self.mainAudioMax, self.mainAudioMax], subtitleLine)
 
             if self.refreshVoiceToken:  # 绘制AI产生的人声波形
@@ -1375,10 +1377,10 @@ class MainWindow(QMainWindow):  # Main window
                 xList = self.voiceWaveX[start:end:step]
                 if self.voiceMedia:
                     yList = self.voiceWaveY[start:end:step]
-                    # mp3Path = os.path.join(self.dir, r'temp_audio\vocals.mp3')
+                    # mp3Path = os.path.join(self.dir, r'temp_audio/vocals.mp3')
                 else:
                     yList = self.bgmWaveY[start:end:step]
-                    # mp3Path = os.path.join(, r'temp_audio\bgm.mp3')
+                    # mp3Path = os.path.join(, r'temp_audio/bgm.mp3')
                 self.voiceAudio.mp3Path = self.dir + r'\temp_audio'
                 self.voiceAudio.plot(xList, yList, self.voiceMedia, position, step,
                                      [-self.mainAudioMax, self.mainAudioMax], subtitleLine)
@@ -1390,20 +1392,20 @@ class MainWindow(QMainWindow):  # Main window
         self.player.setMuted(False)
 
     def playVocal(self):  # 播放人声音频
-        if os.path.exists(r'temp_audio\vocals.mp3') and self.videoPath:
+        if os.path.exists(r'temp_audio/vocals.mp3') and self.videoPath:
             self.player.setMuted(True)
             self.player_vocal.setMuted(False)
             if not self.secondeMedia:  # 从原音轨切换至第二音轨
                 self.secondeMedia = not self.secondeMedia
                 if self.player_vocal.mediaStatus() == QMediaPlayer.MediaStatus.NoMedia:
-                    url = QUrl.fromLocalFile(r'temp_audio\vocals.mp3')
+                    url = QUrl.fromLocalFile(r'temp_audio/vocals.mp3')
                     self.player_vocal.setMedia(url)
             else:  # 第二音轨在人声音轨和背景音轨之间来回切换
                 if self.voiceMedia:  # 人声音轨切换至背景音轨
-                    url = QUrl.fromLocalFile(r'temp_audio\bgm.mp3')
+                    url = QUrl.fromLocalFile(r'temp_audio/bgm.mp3')
                     self.player_vocal.setMedia(url)
                 else:  # 背景音轨切换至人声音轨
-                    url = QUrl.fromLocalFile(r'temp_audio\vocals.mp3')
+                    url = QUrl.fromLocalFile(r'temp_audio/vocals.mp3')
                     self.player_vocal.setMedia(url)
                 self.voiceMedia = not self.voiceMedia
                 self.refreshGraph(True)

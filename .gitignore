@@ -127,3 +127,15 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+*.m4a
+*.aac
+*.mp3
+temp_sub.jpg
+vocalsList.txt
+bgmList.txt
+config
+temp_audio/
+.ass
+.DS_Store
+temp_origin.jpg

@@ -8,7 +8,7 @@ import subprocess
 from PySide2.QtWidgets import QGridLayout, QFileDialog, QDialog, QPushButton,\
         QLineEdit, QTableWidget, QTableWidgetItem, QProgressBar, QLabel
 from PySide2.QtCore import QTimer, Signal, QThread
-
+from utils.platform_helper import getBin, getOS
 
 class dnldThread(QThread):
     downloading = Signal(str)
@@ -20,7 +20,10 @@ class dnldThread(QThread):
         self.dnldNum = dnldNum
         self.videoType = videoType
         self.resolution = resolution
-        self.savePath = savePath.replace('/', '\\')
+        if getOS() == 'win32': #只有Windows需要换成后斜
+            self.savePath = savePath.replace('/', '\\')
+        else:
+            self.savePath = savePath
         if not os.path.isdir(self.savePath):
             self.savePath = os.path.split(self.savePath)[0]
         self.title = title
@@ -33,7 +36,7 @@ class dnldThread(QThread):
             outputPath = os.path.join(self.savePath, modifyName.replace(':', ' -'))  # 文件路径里不能带冒号
             if not os.path.exists(outputPath):
                 self.downloading.emit(outputPath)
-                cmd = ['utils/youtube-dl.exe', '-f', num]
+                cmd = [getBin('youtube-dl'), '-f', num]
                 if not cnt:
                     cmd += self.args
                 cmd.append(self.url)
@@ -70,7 +73,7 @@ class dnldThread(QThread):
                 #                 os.remove(f)
                 #             else:
                 #                 os.rename(f, modifyName)
-                self.done.emit('单项完成')
+                self.done.emit('单项完成') #Mac上下载会出现卡死现象，可能是终端的polling跟不上
             else:
                 self.done.emit('文件已存在 跳过')
         self.done.emit('下载完成')
@@ -88,7 +91,7 @@ class dnldCheck(QThread):
 
     def run(self):
         cnt = 0
-        p = subprocess.Popen(['utils/youtube-dl.exe', '-e', self.url], stdout=subprocess.PIPE)
+        p = subprocess.Popen([getBin('youtube-dl'), '-e', self.url], stdout=subprocess.PIPE)
         while not p.poll() in [0, 1]:
             cnt += 1
             self.searchCnt.emit(cnt % 3 + 1)
@@ -99,9 +102,9 @@ class dnldCheck(QThread):
             self.searchCnt.emit(0)
         else:
             self.checkStatus.emit(True)
-            title = p.stdout.read().decode('gb18030').strip().replace('/', '_')
+            title = p.stdout.read().decode('utf-8').strip().replace('/', '_')
             self.videoTitle.emit(title)
-            p = subprocess.Popen(['utils/youtube-dl.exe', '-F', self.url], stdout=subprocess.PIPE)
+            p = subprocess.Popen([getBin('youtube-dl'), '-F', self.url], stdout=subprocess.PIPE)
             while not p.poll() in [0, 1]:
                 cnt += 1
                 self.searchCnt.emit(cnt % 3 + 1)

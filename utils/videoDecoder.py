@@ -4,6 +4,7 @@ from PySide2.QtWidgets import QGridLayout, QFileDialog, QDialog, QPushButton, QA
         QComboBox, QCheckBox, QWidget, QSlider, QFontDialog, QColorDialog, QTabWidget, QMessageBox
 from PySide2.QtCore import Qt, QTimer, Signal, QThread, QPoint
 from PySide2.QtGui import QFontInfo, QPixmap, QIntValidator, QDoubleValidator
+from utils.platform_helper import getBin, getOS
 
 
 def ms2SRTTime(ms):
@@ -76,7 +77,7 @@ class videoEncoder(QThread):
         self.cmd = cmd
 
     def run(self):
-        self.p = subprocess.Popen(['ffmpeg.exe', '-i', self.videoPath, '-map', '0:v:0', '-c', 'copy', '-f', 'null', '-'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.p = subprocess.Popen([getBin('ffmpeg'), '-i', self.videoPath, '-map', '0:v:0', '-c', 'copy', '-f', 'null', '-'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self.p.wait()
         frames = self.p.stdout.readlines()[-2].decode('gb18030').split('frame=')[-1].split(' ')
         for f in frames:
@@ -156,14 +157,15 @@ class encodeOption(QWidget):
 
         self.anime4k = QPushButton('使用Anime4K扩展画质 ')
 #         self.anime4k.clicked.connect(self.anime4kClick)
-        layout.addWidget(self.anime4k, 1, 0, 1, 1)
+        if getOS() == 'win32':
+            layout.addWidget(self.anime4k, 1, 0, 1, 1)
         layout.addWidget(QLabel('压缩比'), 1, 3, 1, 1)
         self.exportVideoPreset = QComboBox()
         self.exportVideoPreset.addItems(['极致(最慢)', '较高(较慢)', '中等(中速)', '较低(较快)', '最低(最快)'])
         self.exportVideoPreset.setCurrentIndex(2)
         layout.addWidget(self.exportVideoPreset, 1, 4, 1, 1)
         layout.addWidget(QLabel(), 1, 5, 1, 1)
-        layout.addWidget(QLabel('编码器'), 1, 6, 1, 1)
+        layout.addWidget(QLabel('编码器'), 1, 6, 1, 1) 
         self.encoder = QComboBox()
         self.encoder.addItems(['CPU', 'N卡 H264', 'N卡 HEVC', 'A卡 H264', 'A卡 HEVC'])
         self.encoder.currentIndexChanged.connect(self.encoderChange)
@@ -971,7 +973,7 @@ class VideoDecoder(QWidget):
             videoHeight = self.setEncode.exportVideoHeight.text()
             bit = self.setEncode.exportVideoBitrate.text() + 'k'
             preset = ['veryslow', 'slow', 'medium', 'fast', 'ultrafast'][self.setEncode.exportVideoPreset.currentIndex()]
-            cmd = ['ffmpeg.exe', '-y', '-ss', str(self.videoPos), '-i', self.videoPath, '-frames', '1', '-vf', 'ass=temp_sub.ass',
+            cmd = [getBin('ffmpeg'), '-y', '-ss', str(self.videoPos), '-i', self.videoPath, '-frames', '1', '-vf', 'ass=temp_sub.ass',
                    '-s', '%sx%s' % (videoWidth, videoHeight), '-b:v', bit, '-preset', preset, '-q:v', '1', '-f', 'image2', 'temp_sub.jpg']
             if not self.videoPath:
                 self.preview.setText('请先在主界面选择视频')
@@ -1028,7 +1030,7 @@ class VideoDecoder(QWidget):
                 bit = self.setEncode.exportVideoBitrate.text() + 'k'
                 fps = self.setEncode.exportVideoFPS.text()
                 if outputPath.endswith('.mp4'):
-                    cmd = ['ffmpeg.exe', '-y', '-i', self.videoPath]
+                    cmd = [getBin('ffmpeg'), '-y', '-i', self.videoPath]
                     if audio:
                         cmd += ['-i', audio, '-c:a', 'aac']
                     cmd += ['-s', '%sx%s' % (videoWidth, videoHeight), '-preset', preset, '-vf', 'ass=temp_sub.ass']
@@ -1043,7 +1045,7 @@ class VideoDecoder(QWidget):
                     cmd += ['-b:v', bit, '-r', fps]
                     cmd.append(outputPath)
                 elif outputPath.endswith('.mkv'):
-                    cmd = ['ffmpeg.exe', '-y', '-i', self.videoPath]
+                    cmd = [getBin('ffmpeg'), '-y', '-i', self.videoPath]
                     if audio:
                         cmd += ['-i', audio]
                     cmd += ['-i', 'temp_sub.ass', '-c', 'copy']
@@ -1061,7 +1063,7 @@ class VideoDecoder(QWidget):
 
     def setEncodePreview(self, currentPos):
         self.writeAss(preview=False, pos=calSubTime(currentPos))
-        cmd = ['ffmpeg.exe', '-y', '-ss', currentPos, '-i', self.videoPath, '-frames', '1', '-vf', 'ass=temp_sub.ass', '-q:v', '1', '-f', 'image2', 'temp_sub.jpg']
+        cmd = [getBin('ffmpeg'), '-y', '-ss', currentPos, '-i', self.videoPath, '-frames', '1', '-vf', 'ass=temp_sub.ass', '-q:v', '1', '-f', 'image2', 'temp_sub.jpg']
         p = subprocess.Popen(cmd)
         p.wait()
         pixmap = QPixmap('temp_sub.jpg')

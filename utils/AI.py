@@ -8,6 +8,7 @@ import urllib.request, urllib.parse, urllib.error
 import urllib.request, urllib.error, urllib.parse
 import base64
 import numpy as np
+from utils.platform_helper import getBin
 from spleeter.separator import Separator
 from spleeter.audio.adapter import get_default_audio_adapter
 from PySide2.QtWidgets import QGridLayout, QDialog, QPushButton, QProgressBar, QLabel, QComboBox, QLineEdit, QGroupBox,\
@@ -16,6 +17,7 @@ from PySide2.QtCore import QTimer, Signal, QThread, Qt, QPoint
 from PySide2.QtGui import QIntValidator
 import copy, librosa, sklearn
 import pyqtgraph as pg
+
 
 
 def getWave(audioPath):
@@ -204,8 +206,8 @@ class translateThread(QThread):  # AI翻译线程
                 delta = self.voiceDict[start][0]
                 cuts, remain = divmod(delta, 10000)
                 for _ in range(cuts):
-                    cutPath = r'temp_audio\vocals_translate_%s.mp3' % start
-                    cmd = ['ffmpeg.exe', '-y', '-i', r'temp_audio\audio_original.aac', '-ss', str(start // 1000), '-t', '10000',
+                    cutPath = r'temp_audio/vocals_translate_%s.mp3' % start
+                    cmd = [getBin('ffmpeg'), '-y', '-i', r'temp_audio/audio_original.aac', '-ss', str(start // 1000), '-t', '10000',
                            '-sample_fmt', 's16', '-ac', '1', '-ar', '16000', cutPath]
                     p = subprocess.Popen(cmd)
                     p.wait()
@@ -213,8 +215,8 @@ class translateThread(QThread):  # AI翻译线程
                     start += 10000
                     self.prepareParams(cutPath)
                     time.sleep(self.interval)
-                cutPath = r'temp_audio\vocals_translate_%s.mp3' % start
-                cmd = ['ffmpeg.exe', '-y', '-i', r'temp_audio\audio_original.aac', '-ss', str(start // 1000), '-t', str(remain // 1000 + 1),
+                cutPath = r'temp_audio/vocals_translate_%s.mp3' % start
+                cmd = [getBin('ffmpeg'), '-y', '-i', r'temp_audio/audio_original.aac', '-ss', str(start // 1000), '-t', str(remain // 1000 + 1),
                        '-sample_fmt', 's16', '-ac', '1', '-ar', '16000', cutPath]
                 p = subprocess.Popen(cmd)
                 p.wait()
@@ -238,26 +240,26 @@ class sepMainAudio(QThread):  # 创建原音轨文件
         if os.path.exists('temp_audio'):  # 创建和清空temp_audio文件夹
             try:
                 for i in os.listdir('temp_audio'):
-                    os.remove(r'temp_audio\%s' % i)
+                    os.remove(r'temp_audio/%s' % i)
             except:
                 pass
         else:
             os.mkdir('temp_audio')
         timeStamp = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime(time.time()))
-        wavePath = r'temp_audio\main_audio_%s.wav' % timeStamp
-        cmd = ['ffmpeg.exe', '-y', '-i', self.videoPath, '-vn', '-ar', '1000', wavePath]
+        wavePath = r'temp_audio/main_audio_%s.wav' % timeStamp
+        cmd = [getBin('ffmpeg'), '-y', '-i', self.videoPath, '-vn', '-ar', '1000', wavePath]
         p = subprocess.Popen(cmd)
         p.wait()
         _time, _wave = getWave(wavePath)
         self.mainAudioWave.emit(_time, _wave)  # 发送主音频波形
         os.remove(wavePath)  # 删除wav文件  太大了
-        self.audioPath = r'temp_audio\audio_original.aac'  # 分离原音轨
+        self.audioPath = r'temp_audio/audio_original.aac'  # 分离原音轨
         if not os.path.exists(self.audioPath):
-            cmd = ['ffmpeg.exe', '-y', '-i', self.videoPath, '-vn', '-c', 'copy', self.audioPath]
+            cmd = [getBin('ffmpeg'), '-y', '-i', self.videoPath, '-vn', '-c', 'copy', self.audioPath]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             p.wait()
             if p.poll() == 1:  # 复制编码转码出错则按ffmpeg默认编码重新转一遍
-                cmd = ['ffmpeg.exe', '-y', '-i', self.videoPath, '-vn', self.audioPath]
+                cmd = [getBin('ffmpeg'), '-y', '-i', self.videoPath, '-vn', self.audioPath]
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 
@@ -284,11 +286,11 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
         super(separateQThread, self).__init__(parent)
         for f in os.listdir('temp_audio'):
             if '_wave' in f:
-                temp_wave = r'temp_audio\%s' % f
+                temp_wave = r'temp_audio/%s' % f
                 if os.path.getsize(temp_wave) < 250000:
                     os.remove(temp_wave)  # 每次开始打轴前删除静音的临时文件
         self.videoPath = videoPath
-        self.audioPath = r'temp_audio\audio_original.aac'
+        self.audioPath = r'temp_audio/audio_original.aac'
         while not os.path.exists(self.audioPath):  # 等待原音轨生成
             time.sleep(0.5)
         self.duration = duration
@@ -321,7 +323,7 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
         for cut in range(cuts):
             if cut >= self.videoStart and cut <= self.videoEnd and not self.terminalToken:  # 只分析选中时间区域
                 audioPath = 'temp_audio.m4a'
-                cmd = ['ffmpeg.exe', '-y', '-i', self.audioPath, '-vn', '-ss', str(cut * 60), '-t', '60', audioPath]
+                cmd = [getBin('ffmpeg'), '-y', '-i', self.audioPath, '-vn', '-ss', str(cut * 60), '-t', '60', audioPath]
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 p.wait()
                 for line in p.stdout.readlines():
@@ -339,27 +341,28 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
                             break
                 except:
                     hz = 44100
-                self.separate.separate_to_file(audioPath, '.\\', codec='wav')  # 分离人声音轨
-                mp3Path_vocal = r'temp_audio\vocals_wave_%s_temp.mp3' % cut  # 截取转码成mp3格式片段方便上传和播放
-                mp3Path_bgm = r'temp_audio\bgm_wave_%s_temp.mp3' % cut  # 背景音转码成mp3格式
-                cmd = ['ffmpeg.exe', '-y', '-i', r'temp_audio\vocals.wav', mp3Path_vocal]
+                self.separate.separate_to_file(audioPath, r'./', codec='wav')  # 分离人声音轨
+
+                mp3Path_vocal = r'temp_audio/vocals_wave_%s_temp.mp3' % cut  # 截取转码成mp3格式片段方便上传和播放
+                mp3Path_bgm = r'temp_audio/bgm_wave_%s_temp.mp3' % cut  # 背景音转码成mp3格式
+                cmd = [getBin('ffmpeg'), '-y', '-i', r'temp_audio/vocals.wav', mp3Path_vocal]
                 p = subprocess.Popen(cmd)
                 p.wait()
-                cmd = ['ffmpeg.exe', '-y', '-i', mp3Path_vocal, '-ss', '0', '-t', '60', '-c', 'copy', mp3Path_vocal.replace('_temp', '')]
+                cmd = [getBin('ffmpeg'), '-y', '-i', mp3Path_vocal, '-ss', '0', '-t', '60', '-c', 'copy', mp3Path_vocal.replace('_temp', '')]
                 p = subprocess.Popen(cmd)  # 裁剪成精确的60s
                 p.wait()
                 os.remove(mp3Path_vocal)
 
-                cmd = ['ffmpeg.exe', '-y', '-i', r'temp_audio\accompaniment.wav', mp3Path_bgm]
+                cmd = [getBin('ffmpeg'), '-y', '-i', r'temp_audio/accompaniment.wav', mp3Path_bgm]
                 p = subprocess.Popen(cmd)  # 转码保留背景音轨
                 p.wait()
-                cmd = ['ffmpeg.exe', '-y', '-i', mp3Path_bgm, '-ss', '0', '-t', '60', '-c', 'copy', mp3Path_bgm.replace('_temp', '')]
+                cmd = [getBin('ffmpeg'), '-y', '-i', mp3Path_bgm, '-ss', '0', '-t', '60', '-c', 'copy', mp3Path_bgm.replace('_temp', '')]
                 p = subprocess.Popen(cmd)  # 裁剪成精确的60s
                 p.wait()
                 os.remove(mp3Path_bgm)
 
-                wavePath = r'temp_audio\bgm_downsample.wav'  # 获取bgm音轨波形
-                cmd = ['ffmpeg.exe', '-y', '-i', r'temp_audio\accompaniment.wav', '-vn', '-ar', '1000', wavePath]  # 用ffmpeg再降一次采样
+                wavePath = r'temp_audio/bgm_downsample.wav'  # 获取bgm音轨波形
+                cmd = [getBin('ffmpeg'), '-y', '-i', r'temp_audio/accompaniment.wav', '-vn', '-ar', '1000', wavePath]  # 用ffmpeg再降一次采样
                 p = subprocess.Popen(cmd)
                 p.wait()
                 _, _wave = getWave(wavePath)  # 发送人声波形
@@ -367,8 +370,8 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
                     _wave = _wave[:60000]
                 bgmWave += _wave  # 拼接波形
 
-                wavePath = r'temp_audio\vocals_downsample.wav'  # 获取人声音轨波形
-                cmd = ['ffmpeg.exe', '-y', '-i', r'temp_audio\vocals.wav', '-vn', '-ar', '1000', wavePath]  # 用ffmpeg再降一次采样
+                wavePath = r'temp_audio/vocals_downsample.wav'  # 获取人声音轨波形
+                cmd = [getBin('ffmpeg'), '-y', '-i', r'temp_audio/vocals.wav', '-vn', '-ar', '1000', wavePath]  # 用ffmpeg再降一次采样
                 p = subprocess.Popen(cmd)
                 p.wait()
                 _time, _wave = getWave(wavePath)  # 发送人声波形
@@ -418,7 +421,7 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
                     thres = 1
 
                 # librosa
-                audio_path = r"temp_audio\vocals.wav"
+                audio_path = r"temp_audio/vocals.wav"
                 x, sr = librosa.load(audio_path, sr=None)
                 spectral_rolloffs = librosa.feature.spectral_rolloff(x + 0.1, sr=sr)[0]
                 frames = range(len(spectral_rolloffs))
@@ -558,9 +561,9 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
                     self.percent.emit((cut + 1) / cuts * 100)
             else:  # 未选中的时间区域
                 if cut == cuts - 1:
-                    mp3Path_vocal = r'temp_audio\vocals_wave_%s.mp3' % cut  # 创建静音文件填补空白
+                    mp3Path_vocal = r'temp_audio/vocals_wave_%s.mp3' % cut  # 创建静音文件填补空白
                     remain = self.duration % 60000
-                    cmd = ['ffmpeg.exe', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono', '-t', str(remain / 1000), '-q:a', '9',
+                    cmd = [getBin('ffmpeg'), '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono', '-t', str(remain / 1000), '-q:a', '9',
                            '-acodec', 'libmp3lame', '-y', mp3Path_vocal]
                     p = subprocess.Popen(cmd)
                     p.wait()
@@ -576,8 +579,8 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
                         manualVocalList += [0 for _ in range(remain)]
                         self.varList.emit([0 for _ in range(remain)])
                 else:
-                    mp3Path_vocal = r'temp_audio\vocals_wave_%s.mp3' % cut  # 创建静音文件填补空白
-                    cmd = ['ffmpeg.exe', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono', '-t', '60', '-q:a', '9',
+                    mp3Path_vocal = r'temp_audio/vocals_wave_%s.mp3' % cut  # 创建静音文件填补空白
+                    cmd = [getBin('ffmpeg'), '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono', '-t', '60', '-q:a', '9',
                            '-acodec', 'libmp3lame', '-y', mp3Path_vocal]
                     p = subprocess.Popen(cmd)
                     p.wait()
@@ -599,9 +602,9 @@ class separateQThread(QThread):  # AI分离人声音轨及打轴的核心线程
         with open('bgmList.txt', 'w') as f:  # 合并mp3
             for cut in range(cuts):
                 f.write('file temp_audio/bgm_wave_%s.mp3\n' % cut)
-        cmd = ['ffmpeg.exe', '-y', '-f', 'concat', '-safe', '0', '-i', 'vocalslist.txt', '-c', 'copy', r'temp_audio\vocals.mp3']
+        cmd = [getBin('ffmpeg'), '-y', '-f', 'concat', '-safe', '0', '-i', 'vocalslist.txt', '-c', 'copy', r'temp_audio/vocals.mp3']
         subprocess.Popen(cmd)
-        cmd = ['ffmpeg.exe', '-y', '-f', 'concat', '-safe', '0', '-i', 'bgmList.txt', '-c', 'copy', r'temp_audio\bgm.mp3']
+        cmd = [getBin('ffmpeg'), '-y', '-f', 'concat', '-safe', '0', '-i', 'bgmList.txt', '-c', 'copy', r'temp_audio/bgm.mp3']
         subprocess.Popen(cmd)
         self.finish.emit(True)
 
@@ -1186,7 +1189,7 @@ class Separate(QDialog):  # 界面
                 self.tipLabel.setTExt('无法连接至腾讯AI平台 请检查网络')  # 若无法连接网络则重新检查一次
                 self.ping.start()
             else:
-                vocalPath = os.path.join(os.getcwd(), r'temp_audio\audio_original.aac')
+                vocalPath = os.path.join(os.getcwd(), r'temp_audio/audio_original.aac')
                 if not os.path.exists(vocalPath):
                     self.tipLabel.setText('未检测到视频音轨%s 请尝试重新加载视频以生成音轨文件' % vocalPath)
                 elif not self.APPIDEdit.text() or not self.APPKEYEdit.text():
